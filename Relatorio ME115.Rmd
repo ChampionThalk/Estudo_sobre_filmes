@@ -1,0 +1,572 @@
+---
+title: Votos em Cena Explorando a Influência da Quantidade de Votos em Diferentes   Categorias
+  de Filmes'
+author: 
+date: "2023-06-27"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+
+ 
+ 
+ 
+##       **Introdução**
+
+Com o avanço da tecnologia, a produção de filmes se tornou mais acessível e diversificada, resultando em inúmeros lançamentos
+por ano. Diante desse cenário, é importante entender como os filmes são recebidos pelo público e como a quantidade de votos pode influenciar diferentes categorias, tais como as de melhor diretor, melhor ano/decada e top 500 filmes. Neste contexto, o objetivo deste estudo é analisar o  [Movie Dataset: Budgets,Genres,Insights](https://www.kaggle.com/datasets/utkarshx27/movies-dataset?resource=download) que consiste em informações  sobre 4803 filmes, e identificar a influência da quantidade de votos em diferentes categorias, fornecendo  então insights valiosos para a compreensão do mundo cinematográfico.
+
+
+##  **Banco de dados**
+
+Um banco de dados é uma estrutura organizada e eficiente para armazenar e gerenciar dados por meio das variáveis. Ele permite que as pessoas coletem, acessem e utilizem informações de maneira eficaz, fornecendo uma base sólida para a tomada de decisões. Mas, bancos de dados podem exigir algumas alterações antes de serem utilizados de forma eficiente.
+ 
+ 
+###  **Descrição detalhada das variáveis:**     
+
+**index**: Números de 1 a 4803 pra cada filme do dataframe;  
+**budget**: Custo de produção de um filme;  
+**genres**: Gêneros de cada filme;    
+**homepage**: Site de cada filme;     
+**id**: Número de identificação do filme no site [themoviedb](https://www.themoviedb.org/?language=pt-BR);  
+**keywords**: Palavras chaves que identificam os filmes;  
+**original_language**: Idioma original;  
+**original_title**: Titulo original no idioma nativo;     
+**overview**: Sinopse do filme;  
+**popularity**: Rank de popularidade no site [themoviedb](https://www.themoviedb.org/?language=pt-BR);   
+**production_companies**: Responsáveis pela produção do filme;           
+**production_countries**: País onde foi gravado o filme;  
+**release_date**: Data de lançamento;  
+**revenue**: Receita;  
+**runtime**: Tempo de duração;  
+**spoken_languages**: Idioma falado originalmente no filme;  
+**status**: Em que período de produção se encontra o filme (lançado, pós produção e outro);  
+**tagline**: Frase para chamar a atenção;  
+**title**: Título;   
+**vote_average**: Média dos votos de 0 a 10;    
+**vote_count**: Quantidade de votos;   
+**cast**: Elenco do filme;   
+**crew**: Equipe que fez o filme  (produtor e outros);  
+**director**: Diretor;  
+
+
+###  **Bibliotecas necessárias :**
+
+```{r,echo = FALSE, message=FALSE, warning=FALSE}
+#Bibliotecas:
+library(tidyverse)
+library(tibble)
+library(tidyr)
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(ggpubr)
+
+
+(.packages())
+```
+
+##  **Análise Exploratória e Descritiva**   
+Antes de tudo, devemos importar o data frame que está disponível no  [kaggle](https://www.kaggle.com/datasets/utkarshx27/movies-dataset?resource=download) para o RStudio, diretamente de uma página da web, e assim  transformar os dados em um tibble, trabalhando então com um formato mais familiar e de fácil compreensão.
+
+
+```{r,echo = FALSE, message=FALSE, warning=FALSE}
+
+
+
+
+url <- "https://raw.githubusercontent.com/AFurlanTeixeira/moviedataset/main/movie_dataset.csv"
+
+movie_dataset <- read_csv(url)
+
+
+
+
+df_n_limpo <- as_tibble(movie_dataset)
+
+```
+
+Para fazer a análise é necessário "limpar" o banco de dados, ou seja, fazer um tratamento para  obter variáveis novas e deixar o dataframe mais claro para a criação de gráficos e estatísticas sumárias. Além disso, a limpeza realizada deve remover variáveis indesejáveis e as "missing data", ou seja, informações que estão faltando no banco de dados a respeito de um ou mais objetos analisados.   
+
+A) Agora, para limpar o tibble, temos que tirar os filmes que não podem ser avaliados, como por exemplo os que ainda não foram lançados. Assim, tiramos da coluna status:
+
+```{r }
+#para deixar o knit mais bonito
+ status_diferentes <- as_tibble(unique(movie_dataset$status) )   
+   status_pra_tirar <- pull(filter(status_diferentes, status_diferentes$value !="Released"))
+   
+   status_pra_tirar
+#limpando o dataframe
+df_1a <-  filter( df_n_limpo, df_n_limpo$status == "Released")
+
+
+
+```
+
+
+B) Agora, vamos remover as colunas que não serão utilizadas e deixar as mais relevantes, entre elas: budget, id, original_title, release_date, revenue, vote_average, vote_count e director;
+
+```{r}
+
+
+df_1b <- df_1a %>%
+  select(budget, id, original_title, release_date, revenue, vote_average, vote_count,director)
+  
+
+
+
+```
+
+
+C)  Tiramos também os filmes que tiveram uma receita = 0, pois muitos
+    desses filmes foram direto para DVDs e Streamings, sem lançamento nos cinemas. Além disso, vamos tirar os filmes
+    com custos de produção = 0, pois nenhum filme tem custo = 0;
+
+```{r}
+
+df_1c <- df_1b %>% 
+  filter( revenue != 0 & budget != 0)
+
+
+```
+
+D)  Criamos uma variável de data somente com os anos e tiramos a variável "antigs", para facilitar a visualização
+dos melhores anos e das melhores décadas;
+
+
+```{r}
+
+ data_separada <-  separate(df_1c,release_date, sep = "-", into= c("ano","mes","dia"))
+
+  df_1d <-  data_separada %>%
+    select(-( mes) & -(dia))
+
+#transformar o ano em int inves de character para facilitar
+df_1d$ano <- as.integer(df_1d$ano)
+
+```
+
+E)  Mudamos o nome das colunas para o português mantendo o significado dos nomes das variáveis originais:
+
+  + budget para Orçamento
+  + original_title para Titulo_original
+  + revenue para Receita
+  + vote_average para Média_votos
+  + vote_count para Quant_votos
+  + director para Diretor  
+  <br>
+
+```{r}
+
+df_1e <- df_1d %>%
+rename(
+  Orcamento = budget,
+  Titulo_original =  original_title,
+  Receita = revenue,
+  Media_votos = vote_average,
+  Quant_votos = vote_count ,
+  Diretor = director
+)
+
+```
+
+
+
+F)  Finalmente, para terminar de organizar, ordenamos de forma decrescente a quantidade de votos.  
+  
+     
+
+Assim, então teremos o seguinte  estilo de Dataframe:
+
+```{r}
+
+
+df_1f <- arrange(df_1e,desc(Media_votos))
+
+knitr::kable(head(df_1f, n = 5), caption = "tibble final")
+
+
+
+```
+**O banco de dados agora possui 3228 observações que serão utilizadas para dar continuidade ao relatório.**
+
+
+### **Obtendo resultados:**
+
+A)  Observando o gráfico “Quantidade de votos x Média dos votos”, alguns filmes ganham nota alta com menos de 10 pessoas votando, deixando a nota um pouco "enviesada". Pensando assim, quanto mais pessoas votarem, mais próxima da nota “real” chegaremos, algo parecido com a Lei dos grandes números.
+
+
+```{r}
+
+  
+
+
+graf_2a<- df_1f %>%
+  ggplot(aes(x = Quant_votos, y =  Media_votos)) +
+geom_point(color = 'cornflowerblue') +
+labs(title = "Notas", x = "N de Votos", y = " ")
+
+graf_2a
+
+
+
+
+
+
+```
+
+
+ - **Vamos analisar em outras categorias se conseguimos identificar esse viés igual
+anteriormente presente.** 
+
+B) Veremos agora com o critério dos anos e décadas:
+
+```{r}
+
+anos_tops <- df_1f  %>% 
+  head(n=1000)%>%
+  group_by(ano) %>%
+  summarise(quantidade = n()) %>%
+  arrange(desc(quantidade))
+
+anos_tops$ano <- as.integer(anos_tops$ano)
+
+graf_anos_top <- anos_tops %>%
+  ggplot(aes(x = ano, y =quantidade, fill= ano)) +
+  geom_bar(stat="identity") +
+  theme(legend.position = "none")
+ 
+ 
+
+
+#função para decadas
+decada <- function(ano){
+dec  =floor(ano/10)*10 
+  return(dec)
+}
+#agora o datafrme da tabela das decadas
+
+dec_tops<- anos_tops %>% 
+  mutate(decs = decada(ano), quantidade= quantidade)%>%
+   group_by(decs) %>%
+   summarise(quantidade = sum(quantidade))
+
+graf_dec_tops<-dec_tops %>%
+  ggplot(aes(x = decs, y =quantidade, fill= decs))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none")
+
+
+
+
+
+#maiores receitas no menor ano
+
+maiores_receitas <- arrange(df_1f,desc(df_1f$Receita))
+menor_ano <-  min(head(maiores_receitas$ano, head = 100))
+
+grafs_anos <- ggarrange(graf_anos_top, graf_dec_tops,
+          labels = c("Ano","Decada"),
+          ncol = 2,nrow = 1)
+
+
+grafs_anos
+
+
+
+```
+
+
+Podemos ver que os anos mais recentes apresentam mais filmes entre os 1000 melhores, mas como observado em artigos como o “<https://stephenfollows.com/how-many-films-are-released-each-year/>”, talvez não tenha nada incomum. Isso pode acontecer pela popularização do cinema após 1925, uma prova disso é que as maiores receitas a partir de 1977,  ou do “Titanic” em diante.
+
+C) Agora dando uma olhada no de diretores, temos:
+
+```{r}
+
+
+top_diretores <- df_1f %>%
+    head(n=1000) %>%
+    group_by(Diretor) %>%
+    summarise(quantidade = n()) %>%
+    arrange(desc(quantidade))
+
+#tabela dos melhores diretores
+
+knitr::kable(head(top_diretores, n=19), caption = "top diretores")
+                  
+                  
+                  
+                  
+#grafico dos melhores diretores
+graf_top_diretores <-top_diretores %>% 
+  head(n=25) %>%
+  ggplot(aes(x = Diretor,y =quantidade, fill = Diretor))+
+  geom_bar(stat="identity")+
+   theme(axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank(),
+         legend.position="none")
+
+  
+
+ 
+  
+
+
+
+```
+
+
+O nome dos diretores não é de extrema necessidade, pois não vamos julgar o diretor, mas sim as quantidades de vezes  em que um diretor está presente no top 1000, evitando assim um viés na análise. 
+
+Não temos como tirar uma conclusão sobre o impacto da quantidades de votos no número de vezes que um
+diretor estava presente no top 1000, pois não é  comum as pessoas estarem atentas a todos os detalhes ao ponto
+de votar em todos os filmes de um único diretor. Assim, por enquanto, não temos nada muito conclusivo em relação a isso.
+
+
+D) Para uma melhor avaliação, vamos comparar o impacto dos votos nas
+    categorias anteriores com diferentes quantidades mínimas de votos:
+
+**Gráficos de dispersão com diferentes quantidades de votos e
+suas respectivas médias.**
+
+
+```{r,warning = FALSE}
+#25
+maior_que_25 <- filter(df_1f,  Quant_votos >= 25)
+
+graf_25<- maior_que_25%>%
+  ggplot(aes(x = Quant_votos, y =  Media_votos)) +
+   xlim(25,7500)+
+geom_point(color = 'cornflowerblue') +
+labs(title = "Notas", x = "N de Votos", y = " ")
+
+
+#50
+maior_que_50 <- filter(df_1f,  Quant_votos >= 50)
+
+graf_50<- maior_que_50%>%
+  ggplot(aes(x = Quant_votos, y =  Media_votos)) +
+  xlim(50,7500)+
+geom_point(color = 'cornflowerblue') +
+labs(title = "Notas", x = "N de Votos", y = " ")
+
+#100
+maior_que_100<- filter(df_1f,  Quant_votos >=100)
+graf_100<- maior_que_100%>%
+  ggplot(aes(x = Quant_votos, y =  Media_votos)) +
+   xlim(100,7500)+
+geom_point(color = 'cornflowerblue') +
+labs(title = " ", x = "N de Votos", y = " ")
+
+#500
+maior_que_500<- filter(df_1f,  Quant_votos >=500)
+
+graf_500<- maior_que_500%>%
+  ggplot(aes(x = Quant_votos, y =  Media_votos)) +
+   xlim(500,7500)+
+geom_point(color = 'cornflowerblue') +
+labs(title = " ", x = "N de Votos", y = " ")
+
+#juntando todos os graficos juntos para observar melhor
+tudo_junto_graf <-ggarrange(graf_25,graf_50,graf_100,graf_500, 
+          labels = c("25","50","100","500"),
+           ncol = 2, nrow = 2)
+
+
+
+
+
+
+
+tudo_junto_graf
+
+
+
+
+
+
+```
+
+Na visualização do gráfico de 25 existem 3096 observações, no de 50 existem 2961 observações, no de
+100 existem 2715 observações e no de 500 existem  1562 observações.
+
+No gráfico de 500 o número de observações é muito reduzido, menos da metade de observações do banco de dados original “limpo” de 3228. Assim, podemos dizer que 500 votos é uma  mínima de votos muito grande para filtrar os filmes. Já o de 100 votos, tem um número bom de observações, não vemos filmes com notas extremamente altas e nem extremante baixa, ou seja, sem outliers muito marcantes,  e é onde o votos começam a fazer mais sentido com o usual das opiniões de outras listas disponíveis de forma online, como algumas do imdb, letterboxd e outros portais de notícias.
+
+E) Agora na categoria de anos e décadas:
+
+```{r}
+#25
+anos_tops25 <- maior_que_25%>%
+  head(n=1000)%>%
+  group_by(ano) %>%
+  summarise(quantidade = n()) %>%
+  arrange(desc(quantidade))
+anos_tops25$ano <- as.integer(anos_tops25$ano)
+
+dec_tops25 <-anos_tops25%>% 
+  mutate(decs = decada(ano), quantidade= quantidade)%>%
+   group_by(decs) %>%
+   summarise(quantidade = sum(quantidade))
+
+
+
+graf_dec_tops25 <-dec_tops25 %>%
+  ggplot(aes(x = decs, y =quantidade, fill= decs))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none")
+
+
+#50
+anos_tops50 <- maior_que_50%>%
+  head(n=1000)%>%
+  group_by(ano) %>%
+  summarise(quantidade = n()) %>%
+  arrange(desc(quantidade))
+anos_tops50$ano <- as.integer(anos_tops50$ano)
+
+dec_tops50<- anos_tops50 %>% 
+  mutate(decs = decada(ano), quantidade= quantidade)%>%
+   group_by(decs) %>%
+   summarise(quantidade = sum(quantidade))
+
+graf_dec_tops50<-dec_tops50 %>%
+  ggplot(aes(x = decs, y =quantidade, fill= decs))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none")
+
+
+
+
+#100
+anos_tops100<- maior_que_100%>%
+  head(n=1000)%>%
+  group_by(ano) %>%
+  summarise(quantidade = n()) %>%
+  arrange(desc(quantidade))
+anos_tops100$ano <- as.integer(anos_tops100$ano)
+
+dec_tops100<- anos_tops100%>% 
+  mutate(decs = decada(ano), quantidade= quantidade)%>%
+   group_by(decs) %>%
+   summarise(quantidade = sum(quantidade))
+
+graf_dec_tops100<-dec_tops100%>%
+  ggplot(aes(x = decs, y =quantidade, fill= decs))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none")
+
+#500
+anos_tops500<- maior_que_500%>%
+  head(n=1000)%>%
+  group_by(ano) %>%
+  summarise(quantidade = n()) %>%
+  arrange(desc(quantidade))
+anos_tops500$ano<- as.integer(anos_tops500$ano)
+
+dec_tops500<- anos_tops500%>% 
+  mutate(decs = decada(ano), quantidade= quantidade)%>%
+   group_by(decs) %>%
+   summarise(quantidade = sum(quantidade))
+
+graf_dec_tops500<-dec_tops500%>%
+  ggplot(aes(x = decs, y =quantidade, fill= decs))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none")
+
+
+#todos juntos
+todas_as_decs <- list("25"=dec_tops25,"50"=dec_tops50,"100"=dec_tops100,"500"=                  dec_tops500)
+
+todas_as_decs_graph <- ggarrange(graf_dec_tops25,graf_dec_tops50, graf_dec_tops100, graf_dec_tops500)
+
+
+
+todas_as_decs_graph
+
+```
+
+Nessa categorias o número de votos não interferiu tanto nos resultados das avaliações e continuamos
+com a ideia original que esses dados não parecem ser enviesados pela
+quantidade pequena de votos. Nos deixando em segurança para confiar na hipótese anterior de que o número de votos não altera a avaliação dos filmes de maneira drástica.
+
+F) Voltamos agora para os diretores:
+```{r}
+#25
+
+top_diretores25 <- maior_que_25%>%
+    head(n=1000) %>%
+    group_by(Diretor) %>%
+    summarise(quantidade = n()) %>%
+    arrange(desc(quantidade))
+
+
+#50
+
+top_diretores50 <- maior_que_50%>%
+    head(n=1000) %>%
+    group_by(Diretor) %>%
+    summarise(quantidade = n()) %>%
+    arrange(desc(quantidade))
+
+#100
+top_diretores100<- maior_que_100%>%
+    head(n=1000) %>%
+    group_by(Diretor) %>%
+    summarise(quantidade = n()) %>%
+    arrange(desc(quantidade))
+
+
+
+#500
+top_diretores500<- maior_que_500%>%
+    head(n=1000) %>%
+    group_by(Diretor) %>%
+    summarise(quantidade = n()) %>%
+    arrange(desc(quantidade))
+
+
+
+ knitr::kable(list(
+   head(top_diretores25,n=7),
+   head(top_diretores50,n=7),
+   head(top_diretores100, n=7),
+   head(top_diretores500, n=7)))
+ 
+ 
+ 
+
+ 
+ 
+
+
+```
+
+
+ Para o número de diretores presentes no top1000 aconteceu algo muito curioso, as posições 
+ variaram bastante com a quantidades de votos, nesse caso na escolha dos primeiros 1000.
+  Assim, não temos como dizer como a quantidade de votos alterou na escolha dos melhores diretores,
+  pois o tamanho da amostra pode influênciar na alteração desse ranking.
+ 
+## **Considerações finais**
+
+
+ conluímos que a quantidade de votos pode influenciar a categoria de melhor diretor nos filmes analisados, mas os votos são tão importantes quanto o tamanho da amostra. Para saber a qualidade do filme propriamente dito, a quantidade de votos é influente na alteração do ranqueamento, podendo observar resultados seguros a partir de 100 votos em comparação com outras listas de melhores filmes encontradas na internet. Além disso, a
+quantidade de votos não interfere de maneira significativa para saber os anos com os melhores 1000 filmes.
+Portanto, para entender a capacidade da quantidade de votos enviesar o resultado, é necessário entender para qual objetivo essa informação
+será utilizada. Pois para diferentes casos, temos resultados diferentes. Em resumo, a análise dos dados do Movie Dataset nos permitiu explorar a
+influência da quantidade de votos em diferentes categorias de filmes, fornecendo insights valiosos para a compreensão do mundo
+cinematográfico. 
+
+
+
+
+
+
+
+
+
+
